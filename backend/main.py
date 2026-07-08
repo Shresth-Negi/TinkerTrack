@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-import models  # import so SQLAlchemy knows about the tables
+import models  # noqa: F401 - required to register models with SQLAlchemy Base
 
 # Import routers
 from routers import users, resources, bookings
