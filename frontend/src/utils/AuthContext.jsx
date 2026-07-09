@@ -2,7 +2,12 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { getMe } from "./api";
 
 // Create the context
-const AuthContext = createContext(null);
+const AuthContext = createContext({
+    user: null,
+    login: () => {},
+    logout: () => {},
+    loading: true,
+});
 
 // Provider component - wraps the whole app
 export function AuthProvider({ children }) {
@@ -26,6 +31,7 @@ export function AuthProvider({ children }) {
   function login(token, userData) {
     localStorage.setItem("token", token);
     setUser(userData);
+    setLoading(false);
   }
 
   // Called on logout
