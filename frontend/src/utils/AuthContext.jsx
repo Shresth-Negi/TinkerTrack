@@ -15,17 +15,27 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true); // checking if user is logged in
 
   // On app load, check if there's a saved token and fetch user
-  useEffect(() => {
+useEffect(() => {
+  async function checkAuth() {
     const token = localStorage.getItem("token");
-    if (token) {
-      getMe()
-        .then((userData) => setUser(userData))
-        .catch(() => localStorage.removeItem("token")) // token expired/invalid
-        .finally(() => setLoading(false));
-    } else {
+
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const userData = await getMe();
+      setUser(userData);
+    } catch {
+      localStorage.removeItem("token");
+    } finally {
       setLoading(false);
     }
-  }, []);
+  }
+
+  checkAuth();
+}, []);
 
   // Called after successful login
   function login(token, userData) {
