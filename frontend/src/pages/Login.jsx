@@ -27,7 +27,6 @@ export default function Login() {
       if (isLogin) {
         // LOGIN FLOW
         const { access_token } = await loginUser(form.email, form.password);
-        const userData = await getMe(); // fetch full user profile using token
         // temporarily set token so getMe() works
         localStorage.setItem("token", access_token);
         const me = await getMe();
