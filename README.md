@@ -156,4 +156,4 @@ exit()
 - One user cannot book the same resource twice at the same time
 - Admins are assigned manually via script (no self-registration as admin)
 - No email verification required for registration
-- All times stored in UTC
+- All times stored as is
