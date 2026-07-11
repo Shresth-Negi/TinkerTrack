@@ -58,7 +58,6 @@ function formatDate(isoString) {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // auto-detect
     });
 }
   const activeBookings = bookings.filter((b) => b.status === "active");

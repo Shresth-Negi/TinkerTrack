@@ -30,8 +30,8 @@ export default function BookingModal({ resource, onClose, onSuccess }) {
     try {
       await createBooking({
         resource_id: resource.id,
-        start_time: new Date(form.start_time).toISOString(),
-        end_time: new Date(form.end_time).toISOString(),
+        start_time: form.start_time,
+        end_time: form.end_time,
         purpose: form.purpose || null,
       });
       setSuccess(true);
