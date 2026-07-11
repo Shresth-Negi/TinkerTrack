@@ -50,16 +50,17 @@ export default function MyBookings() {
     }
   }
 
-  function formatDate(isoString) {
-    return new Date(isoString).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+// AFTER - uses browser's local timezone automatically
+function formatDate(isoString) {
+    return new Date(isoString).toLocaleString("en-IN", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // auto-detect
     });
-  }
-
+}
   const activeBookings = bookings.filter((b) => b.status === "active");
   const pastBookings = bookings.filter((b) => b.status === "cancelled");
 
