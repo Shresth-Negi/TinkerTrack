@@ -5,15 +5,14 @@ import Dashboard from "./pages/Dashboard";
 import Resources from "./pages/Resources";
 import MyBookings from "./pages/MyBookings";
 import Admin from "./pages/Admin";
+import Analytics from "./pages/Analytics";
 
-// Protected route - redirects to login if not authenticated
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: "48px", fontFamily: "Inter, sans-serif", color: "#888" }}>Loading...</div>;
   return user ? children : <Navigate to="/login" />;
 }
 
-// Public route - redirects to dashboard if already logged in
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: "48px", fontFamily: "Inter, sans-serif", color: "#888" }}>Loading...</div>;
@@ -29,6 +28,7 @@ function AppRoutes() {
       <Route path="/resources" element={<ProtectedRoute><Resources /></ProtectedRoute>} />
       <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
     </Routes>
   );
 }
