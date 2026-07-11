@@ -90,12 +90,15 @@ export default function Admin() {
     }
   }
 
-  function formatDate(iso) {
-    return new Date(iso).toLocaleString("en-US", {
-      month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
+function formatDate(iso) {
+    return new Date(iso).toLocaleString("en-IN", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
-  }
+}
 
   return (
     <div style={styles.page}>
