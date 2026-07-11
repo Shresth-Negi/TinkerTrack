@@ -2,7 +2,7 @@ from database import SessionLocal
 from models import User, UserRole
 
 db = SessionLocal()
-user = db.query(User).filter(User.email == "your@email.com").first()
+user = db.query(User).filter(User.email == "negishresth2802@gmail.com").first()
 
 if user:
     user.role = UserRole.admin
