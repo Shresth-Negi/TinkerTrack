@@ -13,6 +13,7 @@ class UserRole(str, enum.Enum):
 class BookingStatus(str, enum.Enum):
     active = "active"
     cancelled = "cancelled"
+    expired = "expired"
 
 class ResourceCategory(str, enum.Enum):
     room = "room"

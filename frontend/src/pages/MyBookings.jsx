@@ -8,7 +8,6 @@ export default function MyBookings() {
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
 
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -31,8 +30,7 @@ export default function MyBookings() {
     }
 
     loadBookings();
-
-    return () => controller.abort(); // cleanup on unmount
+    return () => controller.abort();
   }, []);
 
   async function handleCancel(bookingId) {
@@ -50,18 +48,19 @@ export default function MyBookings() {
     }
   }
 
-// AFTER - uses browser's local timezone automatically
-function formatDate(isoString) {
+  function formatDate(isoString) {
     return new Date(isoString).toLocaleString("en-IN", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-}
+  }
+
   const activeBookings = bookings.filter((b) => b.status === "active");
-  const pastBookings = bookings.filter((b) => b.status === "cancelled");
+  const expiredBookings = bookings.filter((b) => b.status === "expired");
+  const cancelledBookings = bookings.filter((b) => b.status === "cancelled");
 
   return (
     <div style={styles.page}>
@@ -88,6 +87,7 @@ function formatDate(isoString) {
           </div>
         )}
 
+        {/* Active bookings */}
         {!loading && activeBookings.length > 0 && (
           <div style={styles.section}>
             <h2 style={styles.sectionTitle}>Active ({activeBookings.length})</h2>
@@ -105,11 +105,30 @@ function formatDate(isoString) {
           </div>
         )}
 
-        {!loading && pastBookings.length > 0 && (
+        {/* Expired bookings */}
+        {!loading && expiredBookings.length > 0 && (
           <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>Cancelled ({pastBookings.length})</h2>
+            <h2 style={styles.sectionTitle}>Expired ({expiredBookings.length})</h2>
             <div style={styles.list}>
-              {pastBookings.map((booking) => (
+              {expiredBookings.map((booking) => (
+                <BookingRow
+                  key={booking.id}
+                  booking={booking}
+                  formatDate={formatDate}
+                  onCancel={null}
+                  cancelling={false}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Cancelled bookings */}
+        {!loading && cancelledBookings.length > 0 && (
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>Cancelled ({cancelledBookings.length})</h2>
+            <div style={styles.list}>
+              {cancelledBookings.map((booking) => (
                 <BookingRow
                   key={booking.id}
                   booking={booking}
@@ -128,14 +147,19 @@ function formatDate(isoString) {
 
 function BookingRow({ booking, formatDate, onCancel, cancelling }) {
   const isActive = booking.status === "active";
+  const isExpired = booking.status === "expired";
+
+  // Dot color
+  const dotColor = isActive ? "#16a34a" : isExpired ? "#d97706" : "#d1d5db";
+
+  // Badge colors
+  const badgeBg = isActive ? "#f0fdf4" : isExpired ? "#fffbeb" : "#f5f5f5";
+  const badgeColor = isActive ? "#16a34a" : isExpired ? "#d97706" : "#888888";
 
   return (
     <div style={styles.row}>
       <div style={styles.rowLeft}>
-        <div style={{
-          ...styles.dot,
-          backgroundColor: isActive ? "#16a34a" : "#d1d5db",
-        }} />
+        <div style={{ ...styles.dot, backgroundColor: dotColor }} />
         <div>
           <div style={styles.rowTitle}>Resource #{booking.resource_id}</div>
           <div style={styles.rowTime}>
@@ -148,11 +172,7 @@ function BookingRow({ booking, formatDate, onCancel, cancelling }) {
       </div>
 
       <div style={styles.rowRight}>
-        <span style={{
-          ...styles.statusBadge,
-          backgroundColor: isActive ? "#f0fdf4" : "#f5f5f5",
-          color: isActive ? "#16a34a" : "#888888",
-        }}>
+        <span style={{ ...styles.statusBadge, backgroundColor: badgeBg, color: badgeColor }}>
           {booking.status}
         </span>
         {isActive && onCancel && (

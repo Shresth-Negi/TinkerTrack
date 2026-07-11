@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from database import get_db
 import models, schemas, auth
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
+
 
 def check_conflict(db: Session, resource_id: int, start_time, end_time, exclude_booking_id=None):
     """
@@ -20,7 +22,17 @@ def check_conflict(db: Session, resource_id: int, start_time, end_time, exclude_
     if exclude_booking_id:
         query = query.filter(models.Booking.id != exclude_booking_id)
 
-    return query.first()  # returns the conflicting booking if any
+    return query.first()
+
+
+def auto_expire(bookings):
+    """Mark any active booking whose end_time has passed as expired."""
+    now = datetime.now()
+    for booking in bookings:
+        if booking.status == models.BookingStatus.active and booking.end_time < now:
+            booking.status = models.BookingStatus.expired
+    return bookings
+
 
 @router.post("/", response_model=schemas.BookingOut)
 def create_booking(
@@ -59,14 +71,21 @@ def create_booking(
     db.refresh(booking)
     return booking
 
+
 @router.get("/my", response_model=List[schemas.BookingOut])
 def my_bookings(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    return db.query(models.Booking).filter(
+    bookings = db.query(models.Booking).filter(
         models.Booking.user_id == current_user.id
     ).order_by(models.Booking.start_time.desc()).all()
+
+    auto_expire(bookings)
+    db.commit()
+
+    return bookings
+
 
 @router.delete("/{booking_id}")
 def cancel_booking(
@@ -78,18 +97,27 @@ def cancel_booking(
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 
-    # Only the owner or an admin can cancel
     if booking.user_id != current_user.id and current_user.role != models.UserRole.admin:
         raise HTTPException(status_code=403, detail="Not allowed to cancel this booking")
+
+    if booking.status == models.BookingStatus.expired:
+        raise HTTPException(status_code=400, detail="Cannot cancel an expired booking")
 
     booking.status = models.BookingStatus.cancelled
     db.commit()
     return {"message": "Booking cancelled"}
 
-# Admin: see all bookings
+
 @router.get("/all", response_model=List[schemas.BookingOut])
 def all_bookings(
     db: Session = Depends(get_db),
     admin: models.User = Depends(auth.require_admin)
 ):
-    return db.query(models.Booking).order_by(models.Booking.created_at.desc()).all()
+    bookings = db.query(models.Booking).order_by(
+        models.Booking.created_at.desc()
+    ).all()
+
+    auto_expire(bookings)
+    db.commit()
+
+    return bookings
