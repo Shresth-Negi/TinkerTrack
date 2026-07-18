@@ -1,0 +1,284 @@
+================================================================
+TINKERTRACK — ARCHITECTURE & DESIGN DOCUMENT
+================================================================
+
+OVERVIEW
+--------
+TinkerTrack is a shared resource management system that allows
+users to discover, reserve, and manage shared resources such as
+rooms, equipment, labs, and sports facilities.
+
+Built for environments like hostels, student clubs, labs,
+makerspaces, startups, or university departments.
+
+
+================================================================
+ARCHITECTURE
+================================================================
+
+The system follows a standard client-server architecture.
+
+    React Frontend (port 5173)
+            |
+            |  HTTP REST API (JSON)
+            v
+    FastAPI Backend (port 8000)
+            |
+            |  SQLAlchemy ORM
+            v
+    SQLite Database (tinkertrack.db)
+
+- Frontend communicates with backend using REST API calls
+- Backend handles all business logic and authentication
+- SQLite stores all persistent data via SQLAlchemy ORM
+- JWT tokens handle stateless authentication between layers
+
+
+================================================================
+TECH STACK
+================================================================
+
+Layer        Technology               Reason
+-----------  -----------------------  --------------------------
+Frontend     React + React Router     Component-based UI, easy
+                                      state management
+Backend      Python + FastAPI         Fast, auto-generates API
+                                      docs, Python native
+Database     SQLite + SQLAlchemy      Zero setup, easy to swap
+                                      to PostgreSQL later
+Auth         JWT + bcrypt             Stateless, secure,
+                                      industry standard
+Styling      Inline CSS (React)       No build step, full
+                                      control over styles
+
+
+================================================================
+DATABASE DESIGN
+================================================================
+
+USERS TABLE
+-----------
+Column            Type      Notes
+----------------  --------  ----------------------------
+id                Integer   Primary key, auto increment
+name              String    Required
+email             String    Unique, indexed
+hashed_password   String    bcrypt hashed, never plain
+role              Enum      user / admin
+created_at        DateTime  Auto set on creation
+
+
+RESOURCES TABLE
+---------------
+Column        Type      Notes
+------------  --------  -----------------------------------
+id            Integer   Primary key, auto increment
+name          String    Required
+description   String    Optional
+category      Enum      room / equipment / lab /
+                        sports / other
+location      String    Optional
+image_url     String    Optional
+is_available  Boolean   Admin can toggle on/off
+created_at    DateTime  Auto set on creation
+
+
+BOOKINGS TABLE
+--------------
+Column       Type      Notes
+-----------  --------  -----------------------------------
+id           Integer   Primary key, auto increment
+user_id      FK        References users.id
+resource_id  FK        References resources.id
+start_time   DateTime  Required
+end_time     DateTime  Required
+purpose      String    Optional, reason for booking
+status       Enum      active / cancelled / expired
+created_at   DateTime  Auto set on creation
+
+Relationships:
+- One User has many Bookings
+- One Resource has many Bookings
+- Booking connects User and Resource (junction)
+
+
+================================================================
+KEY DESIGN DECISIONS
+================================================================
+
+1. JWT AUTHENTICATION
+   Stateless authentication using JWT tokens. Token contains
+   user_id and expiry time (24 hours). Every protected route
+   validates the token before executing any logic.
+   Chosen over sessions for simplicity and scalability.
+
+2. CONFLICT DETECTION
+   Booking conflicts detected using the overlap formula:
+       start1 < end2  AND  end1 > start2
+   This catches all cases of overlapping time slots for the
+   same resource. Runs on every booking creation request
+   before saving to the database. Returns HTTP 409 Conflict
+   with the conflicting booking ID in the error message.
+
+3. SOFT DELETES FOR BOOKINGS
+   Bookings are never deleted from the database. Instead their
+   status changes to "cancelled" or "expired". This preserves
+   full history for analytics and audit purposes.
+
+4. HARD DELETES FOR RESOURCES
+   Resources are actually deleted since they are admin-managed
+   content. Historical booking records still retain the
+   resource_id as a reference even after deletion.
+
+5. AUTO-EXPIRY SYSTEM
+   Bookings are automatically marked as "expired" when their
+   end_time has passed. This happens lazily on the next fetch
+   of bookings rather than a background scheduler. Simple and
+   effective for this scale. Three distinct statuses allow
+   users to clearly see active, expired, and cancelled bookings.
+
+6. ROLE-BASED ACCESS CONTROL
+   Two roles: user and admin. Enforced at the API level using
+   FastAPI Depends() system. Frontend hides admin UI elements
+   but all security is enforced backend-side — a user cannot
+   access admin endpoints even by manipulating the frontend.
+
+7. STORAGE STRATEGY
+   SQLite chosen for zero configuration and easy setup. The
+   SQLAlchemy ORM abstracts the database layer completely.
+   Switching to PostgreSQL for production requires only
+   changing the DATABASE_URL string in database.py.
+   No other code changes needed.
+
+8. SINGLE TIMEZONE APPROACH
+   All times stored and displayed in local time directly.
+   The datetime-local HTML input captures local time and
+   sends it as-is to the backend. Display uses the browser's
+   local timezone automatically via Intl.DateTimeFormat().
+
+
+================================================================
+API STRUCTURE
+================================================================
+
+USERS
+  POST   /users/register                 Create account
+  POST   /users/login                    Get JWT token
+  GET    /users/me                       Get own profile (auth)
+
+RESOURCES
+  GET    /resources/                     List all (public)
+  GET    /resources/{id}                 Get one (public)
+  POST   /resources/                     Create (admin only)
+  DELETE /resources/{id}                 Delete (admin only)
+  PATCH  /resources/{id}/toggle-availability
+                                         Toggle on/off (admin)
+
+BOOKINGS
+  POST   /bookings/                      Create booking (auth)
+  GET    /bookings/my                    My bookings (auth)
+  DELETE /bookings/{id}                  Cancel booking (auth)
+  GET    /bookings/all                   All bookings (admin)
+
+
+================================================================
+FRONTEND STRUCTURE
+================================================================
+
+src/
+  App.jsx                 Router setup, protected routes
+  pages/
+    Login.jsx             Register and login (tabbed)
+    Dashboard.jsx         Welcome screen with quick stats
+    Resources.jsx         Browse and filter resources
+    MyBookings.jsx        View/cancel personal bookings
+    Admin.jsx             Manage resources and bookings
+    Analytics.jsx         Booking stats and charts
+  components/
+    Navbar.jsx            Navigation with role-aware links
+    BookingModal.jsx      Date/time picker modal
+  utils/
+    api.js                All backend API calls in one place
+    AuthContext.jsx       Global auth state management
+
+
+================================================================
+ADDITIONAL FEATURES IMPLEMENTED
+================================================================
+
+1. Auto-expiry
+   Bookings automatically expire after end_time passes.
+   Shown separately in orange on My Bookings page.
+
+2. Analytics Dashboard (admin only)
+   - Total bookings, active bookings, cancellation rate
+   - Available vs total resources
+   - Most booked resources (horizontal bar chart)
+   - Bookings by category (bar chart)
+   - Full resource utilization table
+
+3. Category Filtering
+   Resources page has filter buttons by category type.
+   Filter updates instantly without re-fetching from server.
+
+4. Conflict Detection with Clear Errors
+   When a time slot is taken, error message includes the
+   conflicting booking ID so admin can investigate.
+
+5. Role-Based UI
+   Admin and Analytics links only appear for admin users.
+   Non-admins are redirected if they try to access /admin
+   or /analytics directly via URL.
+
+6. Soft Delete History
+   All booking history preserved for analytics even after
+   cancellation or expiry.
+
+7. Auto-Login After Register
+   After creating an account, users are automatically logged
+   in and redirected to dashboard without extra steps.
+
+
+================================================================
+ASSUMPTIONS MADE
+================================================================
+
+1. Single timezone — all times stored and displayed in local
+   time of the user's browser
+
+2. Admins assigned manually via Python script, no self-
+   promotion to admin role through the application
+
+3. No email verification required for registration
+
+4. One resource cannot be double-booked in the same time slot
+   by any user
+
+5. Users can only cancel their own bookings. Admins can
+   cancel any booking.
+
+6. Cancelled or expired bookings free up the time slot
+   for future bookings by other users
+
+7. No file upload support for resource images — URL only
+
+8. No pagination implemented — suitable for small to medium
+   datasets as expected in a shared space environment
+
+
+================================================================
+POTENTIAL IMPROVEMENTS FOR PRODUCTION
+================================================================
+
+1. Switch SQLite to PostgreSQL for concurrent users
+2. Store JWT in httpOnly cookies instead of localStorage
+3. Add email notifications for booking confirmations
+4. Add waitlist system for unavailable resources
+5. Add pagination for large datasets
+6. Add background job for auto-expiry instead of lazy expiry
+7. Add refresh token support for longer sessions
+8. Deploy backend on Render, frontend on Vercel
+
+================================================================
+END OF DOCUMENT
+================================================================
